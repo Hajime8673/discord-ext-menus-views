@@ -91,10 +91,11 @@ class ViewMenu(menus.Menu):
             return dummy()
 
     async def _internal_loop(self):
+        self.__timed_out = False
         try:
             self.__timed_out = await self.view.wait()
-        except Exception as e:
-            print(e)
+        except Exception:
+            pass
         finally:
             self._event.set()
 
@@ -127,7 +128,7 @@ class ViewMenu(menus.Menu):
         self.ctx = ctx
         self._author_id = ctx.author.id
         channel = channel or ctx.channel
-        is_guild = hasattr(channel, "guild") 
+        is_guild = hasattr(channel, "guild") and channel.guild is not None
         me = channel.guild.me if is_guild else ctx.bot.user
         permissions = channel.permissions_for(me)
         self._verify_permissions(ctx, channel, permissions)
