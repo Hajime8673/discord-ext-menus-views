@@ -1,6 +1,22 @@
 import discord
 from discord.ext import menus
 
+class CollectPageInput(discord.ui.Modal, title='Go To Page'):
+    def __init__(self, max_page_value=0):
+        super().__init__(timeout=60)
+        self.add_item(discord.ui.TextInput(label=f"Page Number (1-{max_page_value})",style=discord.TextStyle.short,max_length=len(str(max_page_value)),min_length=1,row=0,required=True))
+        self.value = None
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        value = interaction.data['components'][0]['components'][0]['value']
+        self.interaction = interaction
+        self.value = value
+        self.stop()
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        await interaction.response.send_message('Oops! Something went wrong.', ephemeral=True)
+        self.stop()
 
 class ViewMenu(menus.Menu):
     def __init__(self, *, auto_defer=True, **kwargs):
@@ -13,6 +29,7 @@ class ViewMenu(menus.Menu):
         if not self.should_add_reactions():
             return None
 
+        emoji_label = {4: 'Go To Page', 5: 'Close Paginator'}
         def make_callback(button):
             async def callback(interaction):
                 if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids}:
@@ -30,11 +47,46 @@ class ViewMenu(menus.Menu):
                     await self.on_menu_button_error(exc)
 
             return callback
+        
+        def make_go_to_page_callback(button):
+            async def callback(interaction: discord.Interaction):
+                if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids}:
+                    return
+                
+                modal = CollectPageInput(self.max_page_value)
+                await interaction.response.send_modal(modal)
+                await modal.wait()
+                if modal.value is None:
+                    return
+                try:
+                    value = int(modal.value)
+                except:
+                    await modal.interaction.followup.send('Input value could not be converted to a page number.', ephemeral=True)
+                    return
+                if value < 1:
+                    value = 1
+                if value > self.max_page_value:
+                    value = self.max_page_value
+                try:
+                    if button.lock:
+                        async with self._lock:
+                            if self._running:
+                                await button(self, interaction, value)
+                    else:
+                        await button(self, interaction, value)
+                except Exception as exc:
+                    print(exc)
+                    await self.on_menu_button_error(exc)
+
+            return callback
 
         view = discord.ui.View(timeout=self.timeout)
         for i, (emoji, button) in enumerate(self.buttons.items()):
-            item = discord.ui.Button(style=discord.ButtonStyle.secondary, emoji=emoji, row=i // 5)
-            item.callback = make_callback(button)
+            item = discord.ui.Button(style=discord.ButtonStyle.blurple if i == 4 else (discord.ButtonStyle.gray if i != 5 else discord.ButtonStyle.red), emoji=emoji, row=i // 4, label=emoji_label.get(i, None))
+            if i != 4:
+                item.callback = make_callback(button)
+            else:
+                item.callback = make_go_to_page_callback(button)
             view.add_item(item)
 
         self.view = view
@@ -161,6 +213,7 @@ class ViewMenu(menus.Menu):
 class ViewMenuPages(menus.MenuPages, ViewMenu):
     def __init__(self, source, **kwargs):
         self._source = source
+        self.max_page_value = source.get_max_pages()
         self.current_page = 0
         super().__init__(source, **kwargs)
 
