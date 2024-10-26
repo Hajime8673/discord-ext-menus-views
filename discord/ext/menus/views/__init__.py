@@ -33,7 +33,7 @@ class ViewMenu(menus.Menu):
         def make_callback(button):
             async def callback(interaction):
                 if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids, *self._allowed_user_ids}:
-                    return
+                    return await interaction.response.send_message('You are not allowed to use this button.', ephemeral=True)
                 if self.auto_defer:
                     await interaction.response.defer()
                 try:
