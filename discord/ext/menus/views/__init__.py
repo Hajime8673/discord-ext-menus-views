@@ -51,7 +51,7 @@ class ViewMenu(menus.Menu):
         def make_go_to_page_callback(button):
             async def callback(interaction: discord.Interaction):
                 if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids, *self._allowed_user_ids}:
-                    return
+                    return await interaction.response.send_message('You are not allowed to use this button.', ephemeral=True)
                 
                 modal = CollectPageInput(self.max_page_value)
                 await interaction.response.send_modal(modal)
