@@ -32,7 +32,7 @@ class ViewMenu(menus.Menu):
         emoji_label = {4: 'Go To Page', 5: 'Close Paginator'}
         def make_callback(button):
             async def callback(interaction):
-                if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids}:
+                if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids, *self._allowed_user_ids}:
                     return
                 if self.auto_defer:
                     await interaction.response.defer()
@@ -50,7 +50,7 @@ class ViewMenu(menus.Menu):
         
         def make_go_to_page_callback(button):
             async def callback(interaction: discord.Interaction):
-                if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids}:
+                if interaction.user.id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids, *self._allowed_user_ids}:
                     return
                 
                 modal = CollectPageInput(self.max_page_value)
@@ -170,11 +170,16 @@ class ViewMenu(menus.Menu):
             except Exception:
                 pass
 
-    async def start(self, ctx, *, channel=None, wait=False):
+    async def start(self, ctx, *, channel=None, wait=False, allowed_user_ids=None):
         try:
             del self.buttons
         except AttributeError:
             pass
+
+        if allowed_user_ids is None:
+            self._allowed_user_ids = set()
+        else:
+            self._allowed_user_ids = set(allowed_user_ids)
 
         self.bot = bot = ctx.bot
         self.ctx = ctx
